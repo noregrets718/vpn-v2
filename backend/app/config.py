@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int
     POSTGRES_DB: str
 
-    REDIS_URL: str = "redis://localhost:6379/0"
-    SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"
+    REDIS_URL: str
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
 
     #jwt
@@ -29,8 +29,8 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
-    LOCAL_SERVER_NAME: str = "Local"
-    LOCAL_SERVER_COUNTRY: str = "RU"
+    LOCAL_SERVER_NAME: str
+    LOCAL_SERVER_COUNTRY: str
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
