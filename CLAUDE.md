@@ -123,20 +123,53 @@ All prefixed with `/api`:
 | GET | `/traffic/stats` | Traffic stats |
 | WS | `/ws/speed/{key_id}` | Real-time speed stream |
 
+### Agent Node Architecture (`backend/agent/`)
+
+A standalone FastAPI service for deploying VPN on remote nodes. Exposes a minimal HTTP API consumed by `RemoteAgentBackend`:
+
+- **`main.py`** — Starts/stops `ss-server` subprocesses and manages iptables rules. Endpoints:
+  - `POST /instances` — Start a shadowsocks instance on a port
+  - `DELETE /instances/{port}` — Stop an instance
+  - `GET /traffic` — Per-port byte counters (same iptables parsing as local)
+  - `GET /health` — Active instance count
+  - `GET /info` — Public IP (via ipify)
+- **`auth.py`** — Token auth via `X-Agent-Token` request header
+- **`Dockerfile`** — Separate image for deployment on remote nodes
+
+### Server Backend Protocol (`backend/app/services/server_backend.py`)
+
+`ServerBackend` is a `Protocol` with two implementations:
+
+- **`LocalBackend`** — Delegates to the local `ss_manager` singleton
+- **`RemoteAgentBackend`** — Calls a remote agent over HTTP (httpx), passing `X-Agent-Token`
+
+`get_backend(server)` returns `LocalBackend` when `server.is_local` is true, otherwise `RemoteAgentBackend(server.agent_url, server.agent_token)`. The `Server` model has `agent_url` and `agent_token` fields (added in the second migration).
+
 ### Configuration
 
-Backend reads from `backend/.env`. Required vars:
+Backend reads from `backend/.env`. Required vars (no defaults):
 ```
 POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB
+REDIS_URL               # e.g. redis://localhost:6379
+SECRET_KEY              # JWT signing key (change in production!)
+ADMIN_EMAIL             # bootstrapped admin account email
+ADMIN_PASSWORD          # bootstrapped admin account password
+LOCAL_SERVER_NAME       # display name for the local server
+LOCAL_SERVER_COUNTRY    # country code for the local server
 ```
 
-Optional:
+Optional (have defaults):
 ```
-SECRET_KEY          # JWT signing key (change in production!)
 SS_BINARY_PATH      # default: /usr/bin/ss-server
 SS_CONFIG_DIR       # default: /etc/shadowsocks-libev/users
+SS_METHOD           # default: chacha20-ietf-poly1305
 PORT_RANGE_START/END # default: 10001–60000
+CORS_ORIGINS        # comma-separated; default: localhost:5173,localhost:3000
 ```
+
+### No Tests or Linting
+
+There is no test suite (no pytest, vitest) and no linter configured (no ruff, eslint). Run the app manually to verify changes.
 
 ### Production Requirements
 
