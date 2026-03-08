@@ -173,7 +173,7 @@ class ShadowsocksManager:
     async def get_next_free_port(self, db: AsyncSession, server_id) -> int:
         result = await db.execute(
             select(AccessKey.ss_port)
-            .where(AccessKey.server_id == server_id, AccessKey.is_active == True)  # noqa: E712
+            .where(AccessKey.server_id == server_id)  # noqa: E712
             .order_by(AccessKey.ss_port.desc())
             .limit(1)
         )
