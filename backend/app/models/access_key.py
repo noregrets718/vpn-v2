@@ -24,5 +24,5 @@ class AccessKey(Base):
     last_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="access_keys")
-    server = relationship("Server", back_populates="access_keys")
+    server = relationship("Server", back_populates="access_keys", lazy="selectin")
     traffic_logs = relationship("TrafficLog", back_populates="access_key", lazy="selectin")
