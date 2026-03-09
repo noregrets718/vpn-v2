@@ -6,7 +6,10 @@ from pydantic import BaseModel
 
 class ServerCreate(BaseModel):
     name: str
-    ip_address: str
+    ip_address: str | None = None
+    port: int | None = None
+    username: str
+    password: str
     country: str
     city: str | None = None
     port_range_start: int = 10001
