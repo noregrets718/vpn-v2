@@ -162,4 +162,5 @@ async def get_info():
   async with httpx.AsyncClient(timeout=5.0) as client:
       r = await client.get("https://api.ipify.org?format=json")
       public_ip = r.json()["ip"]
+      logger.info(f"server ip{public_ip}")
   return {"ip": public_ip}
