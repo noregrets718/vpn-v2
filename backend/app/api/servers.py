@@ -1,7 +1,8 @@
+import logging
 import uuid
 import httpx
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy import select
 
@@ -11,6 +12,8 @@ from app.models import Server, User
 from app.schemas.server import ServerResponse, ServerCreate, ServerUpdate
 from app.services.server_backend import get_backend
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 router = APIRouter(prefix="/api/servers", tags=["servers"])
 
 @router.get("", response_model=list[ServerResponse])
@@ -28,10 +31,13 @@ async def get_server(server_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 @router.post("", response_model=ServerResponse, status_code=status.HTTP_201_CREATED)
 async def create_server(
+        request: Request,
         data: ServerCreate,
         db: AsyncSession = Depends(get_db),
         admin: User = Depends(get_admin_user),
 ):
+    body = await request.json()
+    logger.info(f"request body: {body}")
     fields = data.model_dump()
 
     if not data.is_local and data.agent_url and data.agent_token:
