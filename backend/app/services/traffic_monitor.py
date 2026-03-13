@@ -63,8 +63,8 @@ class TrafficMonitor:
                     new_up = traffic["upload"]
                     new_down = traffic["download"]
 
-                    delta_up = max(0, new_up - key.traffic_up) if key.traffic_up > 0 else 0
-                    delta_down = max(0, new_down - key.traffic_down) if key.traffic_down > 0 else 0
+                    delta_up = max(0, new_up - key.traffic_up)
+                    delta_down = max(0, new_down - key.traffic_down)
 
                     key.traffic_up = new_up
                     key.traffic_down = new_down
