@@ -51,7 +51,10 @@ class TrafficMonitor:
 
                 for port, traffic in all_traffic.items():
                     result = await db.execute(
-                        select(AccessKey).where(AccessKey.ss_port == port, AccessKey.is_active == True)  # noqa: E712
+                        select(AccessKey).where(
+                            AccessKey.ss_port == port,
+                                        AccessKey.server_id == server.id,
+                                        AccessKey.is_active == True)  # noqa: E712
                     )
                     key = result.scalar_one_or_none()
                     if not key:
