@@ -11,6 +11,7 @@
     is_active: boolean
     current_load: number
     connected_users: number
+    active_instances: number
     is_local?: boolean
   }
 
@@ -30,7 +31,7 @@
 
   async function loadServers() {
     try {
-      servers.value = await api.get('/servers')
+      servers.value = await api.get('/admin/servers')
     } catch {
       servers.value = []
     }
@@ -124,7 +125,7 @@
             <td>{{ s.country }}{{ s.city ? ` / ${s.city}` : '' }}</td>
             <td>{{ s.ip_address }}</td>
             <td>{{ s.is_local ? 'local' : 'remote' }}</td>
-            <td>{{ s.connected_users }}</td>
+            <td>{{ s.active_instances}}</td>
             <td>
               <span v-if="healthStatus[s.id]" :class="healthStatus[s.id].online ? 'online' : 'offline'">
                 {{ healthStatus[s.id].online ? '● online' : '● offline' }}

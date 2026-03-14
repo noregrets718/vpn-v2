@@ -6,7 +6,7 @@
   import TrafficStats from '@/components/TrafficStats.vue'
   import SpeedMonitor from '@/components/SpeedMonitor.vue'
   import { useAuthStore } from '@/stores/auth'
-  import ServersAdmin from '@/components/ServersAdmin.vue'
+  
 
   const authStore = useAuthStore()
 
@@ -64,7 +64,9 @@
           </button>
         </div>
       </div>
-        <ServersAdmin v-if="authStore.user?.is_admin" />
+        <div v-if="authStore.user?.is_admin" class="admin-link">
+    <RouterLink to="/admin">→ Панель администратора</RouterLink>
+  </div>
     </div>
   </template>
 
@@ -112,5 +114,14 @@
     background: #4a90d9;
     color: #fff;
     border-color: #4a90d9;
+  }
+  .admin-link a {
+    display: inline-block;
+    padding: 10px 20px;
+    background: #4a90d9;
+    color: #fff;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 14px;
   }
   </style>

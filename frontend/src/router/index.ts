@@ -15,6 +15,12 @@ import { createRouter, createWebHistory } from 'vue-router'
         name: 'Login',
         component: () => import('../views/LoginView.vue'),
       },
+      {
+        path: '/admin',
+        name: 'Admin',
+        component: () => import('../views/AdminView.vue'),
+      },
+
     ],
   })
 
@@ -30,6 +36,9 @@ import { createRouter, createWebHistory } from 'vue-router'
     }
 
     if (authStore.isAuthenticated && to.name === 'Login') {
+      return { name: 'Dashboard' }
+    }
+     if (to.name === 'Admin' && !authStore.user?.is_admin) {
       return { name: 'Dashboard' }
     }
   })
