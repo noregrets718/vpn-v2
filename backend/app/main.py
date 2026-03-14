@@ -107,12 +107,15 @@ from app.api.servers import router as servers_router
 from app.api.keys import router as keys_router
 from app.api.traffic import router as traffic_router
 from app.api.websocket import router as ws_router
+from app.api.admin import router as admin_router
+
 
 app.include_router(auth_router)
 app.include_router(servers_router)
 app.include_router(keys_router)
 app.include_router(traffic_router)
 app.include_router(ws_router)
+app.include_router(admin_router)
 
 
 @app.get("/api/health")

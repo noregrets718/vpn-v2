@@ -37,3 +37,19 @@ class ServerResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class AdminServerResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    ip_address: str
+    country: str
+    city: str | None
+    is_active: bool
+    is_local: bool
+    current_load: int
+    connected_users: int
+    active_instances: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

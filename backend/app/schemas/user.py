@@ -36,3 +36,23 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+class AdminUserResponse(BaseModel):
+      id: uuid.UUID
+      email: str
+      plan: PlanType
+      traffic_used: int
+      traffic_limit: int
+      is_active: bool
+      is_admin: bool
+      created_at: datetime
+      active_key_count: int
+
+      model_config = {"from_attributes": True}
+
+
+class AdminUserUpdate(BaseModel):
+    plan: PlanType | None = None
+    traffic_limit: int | None = None
+    is_active: bool | None = None
+
