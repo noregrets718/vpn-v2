@@ -59,6 +59,8 @@ services:
         - /var/run/docker.sock:/var/run/docker.sock
       ports:
         - "127.0.0.1:8888:8080"
+      environment:
+        - DOZZLE_BASE=/dozzle
 
   netdata:
       image: netdata/netdata:latest
