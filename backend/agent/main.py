@@ -7,11 +7,14 @@ import secrets
 import signal
 from pathlib import Path
 import httpx
+import time
+import psutil
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from auth import verify_token
+from utils import _read_iptables_traffic
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +26,8 @@ CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 app = FastAPI(title="VPN Node Agent")
 
 _processes: dict[int, asyncio.subprocess.Process] = {}
+_prev_traffic: dict[int, dict[str, int]] = {}
+_prev_traffic_time: float = 0.0
 
 
 class InstanceRequest(BaseModel):
@@ -121,34 +126,7 @@ async def stop_instance(port: int):
 
 @app.get("/traffic", dependencies=[Depends(verify_token)])
 async def get_traffic():
-  proc = await asyncio.create_subprocess_shell(
-      "iptables -L -v -n -x",
-      stdout=asyncio.subprocess.PIPE,
-      stderr=asyncio.subprocess.DEVNULL,
-  )
-  stdout, _ = await proc.communicate()
-  output = stdout.decode()
-
-  traffic: dict[int, dict[str, int]] = {}
-  pattern = re.compile(r"ss-traffic-(\d+)")
-
-  for line in output.splitlines():
-      match = pattern.search(line)
-      if not match:
-          continue
-      p = int(match.group(1))
-      if p not in traffic:
-          traffic[p] = {"upload": 0, "download": 0}
-      parts = line.split()
-      if len(parts) < 8:
-          continue
-      bytes_val = int(parts[1])
-      if f"dpt:{p}" in line:
-          traffic[p]["download"] += bytes_val
-      elif f"spt:{p}" in line:
-          traffic[p]["upload"] += bytes_val
-
-  return traffic
+  return await _read_iptables_traffic()
 
 
 @app.get("/health", dependencies=[Depends(verify_token)])
@@ -164,3 +142,39 @@ async def get_info():
       public_ip = r.json()["ip"]
       logger.info(f"server ip{public_ip}")
   return {"ip": public_ip}
+
+@app.get("/metrics", dependencies=[Depends(verify_token)])
+async def get_metrics():
+  global _prev_traffic, _prev_traffic_time
+
+  cpu = psutil.cpu_percent(interval=0.1)
+  ram = psutil.virtual_memory()
+  disk = psutil.disk_usage("/")
+  uptime = time.time() - psutil.boot_time()
+  active = len([p for p, proc in _processes.items() if proc.returncode is None])
+
+  current_traffic = await _read_iptables_traffic()
+
+  now = time.time()
+  elapsed = now - _prev_traffic_time if _prev_traffic_time else 1.0
+  ports_speed: dict[str, dict[str, float]] = {}
+  for p, counters in current_traffic.items():
+      prev = _prev_traffic.get(p, {"upload": 0, "download": 0})
+      ports_speed[str(p)] = {
+          "upload_bps": max(0, counters["upload"] - prev["upload"]) / elapsed,
+          "download_bps": max(0, counters["download"] - prev["download"]) / elapsed,
+      }
+
+  _prev_traffic = current_traffic
+  _prev_traffic_time = now
+
+  return {
+      "cpu_percent": cpu,
+      "ram_used": ram.used,
+      "ram_total": ram.total,
+      "disk_used": disk.used,
+      "disk_total": disk.total,
+      "uptime_seconds": uptime,
+      "active_instances": active,
+      "ports": ports_speed,
+  }
