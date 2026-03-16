@@ -5,9 +5,9 @@ RUN apt-get update && apt-get install -y \
   iptables \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pip install fastapi uvicorn httpx
+RUN pip install fastapi uvicorn httpx psutil
 
 WORKDIR /agent
-COPY main.py auth.py ./
+COPY main.py auth.py utils.py ./
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000"]
