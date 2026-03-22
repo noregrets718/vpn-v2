@@ -1,0 +1,25 @@
+services:
+    agent:
+      build: ../backend/agent
+      restart: unless-stopped
+      network_mode: host
+      privileged: true
+      environment:
+        AGENT_TOKEN: ${AGENT_TOKEN}
+      volumes:
+        - agent_configs:/etc/shadowsocks-libev/users
+
+    promtail:
+      image: grafana/promtail:3.0.0
+      restart: unless-stopped
+      command: -config.file=/etc/promtail/config.yml -config.expand-env=true
+      environment:
+        LOKI_URL: ${LOKI_URL}
+        NODE_NAME: ${NODE_NAME:-agent-node}
+      volumes:
+        - ./promtail/agent-config.yml:/etc/promtail/config.yml:ro
+        - /var/run/docker.sock:/var/run/docker.sock
+        - /var/lib/docker/containers:/var/lib/docker/containers:ro
+
+volumes:
+  agent_configs:
