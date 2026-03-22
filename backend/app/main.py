@@ -10,6 +10,7 @@ from app.services.shadowsocks import ss_manager
 from app.models.user import User
 from app.utils.crypto import hash_password
 from sqlalchemy import select
+from prometheus_fastapi_instrumentator import Instrumentator
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -92,6 +93,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="VPN Service", version="1.0.0", lifespan=lifespan)
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
 
 app.add_middleware(
     CORSMiddleware,

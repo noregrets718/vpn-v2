@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y \
   iptables \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pip install fastapi uvicorn httpx psutil
+RUN pip install fastapi uvicorn httpx psutil prometheus-client
 
 WORKDIR /agent
 COPY main.py auth.py utils.py ./
