@@ -1,0 +1,3 @@
+ [
+    {"targets": ["37.233.84.70:9000"], "labels": {"node": "node-1", "country": "DE"}}
+ ]
