@@ -59,6 +59,11 @@
     await loadServers()
   }
 
+  async function restoreServer(id: string) {
+    await api.patch(`/servers/${id}`, { is_active: true })                                                                                           
+    await loadServers()                                                                                                                            
+  }
+
   async function checkHealth(id: string) {
     try {
       const data = await api.get(`/servers/${id}/health`)
@@ -114,6 +119,7 @@
             <th>Страна / Город</th>
             <th>IP</th>
             <th>Тип</th>
+            <th>Активен</th>
             <th>Ключей</th>
             <th>Статус</th>
             <th>Действия</th>
@@ -125,6 +131,11 @@
             <td>{{ s.country }}{{ s.city ? ` / ${s.city}` : '' }}</td>
             <td>{{ s.ip_address }}</td>
             <td>{{ s.is_local ? 'local' : 'remote' }}</td>
+            <td>                                                                                                                                               
+              <span :class="s.is_active ? 'online' : 'offline'">  
+                {{ s.is_active ? '● да' : '● нет' }}                                                                                                           
+              </span>
+            </td>
             <td>{{ s.active_instances}}</td>
             <td>
               <span v-if="healthStatus[s.id]" :class="healthStatus[s.id].online ? 'online' : 'offline'">
@@ -134,7 +145,8 @@
             </td>
             <td class="actions">
               <button @click="checkHealth(s.id)">Проверить</button>
-              <button class="btn-danger" @click="deleteServer(s.id)">Удалить</button>
+              <button class="btn-danger" v-if="s.is_active" @click="deleteServer(s.id)">Удалить</button>
+              <button class="btn-restore" v-else @click="restoreServer(s.id)">Восстановить</button>
             </td>
           </tr>
         </tbody>
@@ -163,4 +175,5 @@
   .offline { color: #e74c3c; font-weight: 500; }
   .unknown { color: #aaa; }
   .empty { color: #888; text-align: center; padding: 20px 0; }
+  .btn-restore { background: #27ae60; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
   </style>
