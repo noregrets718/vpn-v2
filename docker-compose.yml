@@ -124,7 +124,10 @@ services:
     privileged: true
     devices:
       - /dev/kmsg
+    command:
+      - "--containerd=/run/containerd/containerd.sock"
     volumes:
+      - /run/containerd/containerd.sock:/run/containerd/containerd.sock
       - /:/rootfs:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - /sys:/sys:ro
