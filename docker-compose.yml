@@ -126,6 +126,7 @@ services:
       - /dev/kmsg
     command:
       - "--containerd=/run/containerd/containerd.sock"
+      - "--containerd-namespace=moby"
     volumes:
       - /run/containerd/containerd.sock:/run/containerd/containerd.sock
       - /:/rootfs:ro
