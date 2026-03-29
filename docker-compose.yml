@@ -119,21 +119,21 @@ services:
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.50.0
-    restart: unless-stopped
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
     privileged: true
     devices:
-      - /dev/kmsg
-    command:
-      - "--containerd=/run/containerd/containerd.sock"
-      - "--containerd-namespace=moby"
+      - /dev/kmsg:/dev/kmsg
     volumes:
-      - /run/containerd/containerd.sock:/run/containerd/containerd.sock
       - /:/rootfs:ro
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run:/var/run:ro
       - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-      - /dev/disk:/dev/disk:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /cgroup:/cgroup:ro
+    restart: unless-stopped
+    command:
+      - '-port=8090'
+    network_mode: host
 
   promtail:
     image: grafana/promtail:3.0.0
@@ -154,3 +154,5 @@ volumes:
   prometheus_data:
   loki_data:
   grafana_data:
+
+networks: {}
