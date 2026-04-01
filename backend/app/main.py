@@ -11,6 +11,7 @@ from app.models.user import User
 from app.utils.crypto import hash_password
 from sqlalchemy import select
 from prometheus_fastapi_instrumentator import Instrumentator
+from app.services.health_checker import health_checker
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -80,6 +81,7 @@ async def lifespan(app: FastAPI):
 
     traffic_monitor.start()
     speed_tracker.start()
+    health_checker.start()
     logger.info("Background services started")
 
     yield
@@ -88,6 +90,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down VPN service...")
     traffic_monitor.stop()
     speed_tracker.stop()
+    health_checker.stop()
     await ss_manager.shutdown()
     logger.info("VPN service stopped")
 

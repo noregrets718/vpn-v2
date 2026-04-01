@@ -74,6 +74,8 @@ class TrafficMonitor:
                             access_key_id=key.id,
                             bytes_up=delta_up,
                             bytes_down=delta_down,
+                            upload_speed=delta_up / 60,
+                            download_speed=delta_down / 60,
                         )
                         db.add(log)
 

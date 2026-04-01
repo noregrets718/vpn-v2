@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.sql.functions import func
+from datetime import datetime, timezone
 
 from app.api.deps import get_current_active_user
 from app.database import get_db
@@ -66,7 +67,9 @@ async def create_key(
         ss_port=port,
         ss_password=password,
         ss_method=method,
+        started_at=datetime.now(timezone.utc),
     )
+
     db.add(key)
     await db.commit()
     await db.refresh(key)

@@ -1,15 +1,22 @@
 import uuid
-
+from datetime import datetime, timezone, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import selectinload
+from sqlalchemy.sql.functions import func
 
 from app.api.deps import get_admin_user
-from app.models import User, Server
+from app.config import settings
+from app.models import User, Server, AccessKey, TrafficLog
+from app.schemas.instance import AdminInstanceResponse, SpeedPoint
 from app.schemas.server import AdminServerResponse
 from app.schemas.user import AdminUserResponse, AdminUserUpdate
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
+
+import redis.asyncio as aioredis
 
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(get_admin_user)])
@@ -88,4 +95,100 @@ async def list_servers(
     ]
 
 
+@router.get("/instances", response_model=list[AdminInstanceResponse])
+async def list_instances(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(AccessKey)
+        .where(
+            AccessKey.is_active == True)  # noqa: E712
+        .options(selectinload(AccessKey.user))
+        .order_by(AccessKey.created_at.desc())
+    )
+    keys = result.scalars().all()
+
+    r = aioredis.from_url(settings.REDIS_URL)
+    now = datetime.now(timezone.utc)
+    responses = []
+
+    try:
+        for key in keys:
+            server = key.server
+            user = key.user
+            latest_log = max(key.traffic_logs, key=lambda l: l.timestamp, default=None)
+
+            raw = await r.get(f"instance_alive:{key.id}")
+            is_alive = None if raw is None else (raw == b"1")
+
+            uptime = None
+            if key.started_at:
+                started = key.started_at
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=timezone.utc)
+                uptime = int((now - started).total_seconds())
+
+            responses.append(AdminInstanceResponse(
+                id=key.id,
+                ss_port=key.ss_port,
+                server_id=key.server_id,
+                server_name=server.name if server else None,
+                server_country=server.country if server else None,
+                user_email=user.email if user else "unknown",
+                started_at=key.started_at,
+                uptime_seconds=uptime,
+                traffic_up=key.traffic_up,
+                traffic_down=key.traffic_down,
+                current_upload_bps=latest_log.upload_speed if latest_log else 0.0,
+                current_download_bps=latest_log.download_speed if latest_log else 0.0,
+                is_alive=is_alive,
+            ))
+    finally:
+        await r.aclose()
+
+    return responses
+
+
+@router.get("/instances/{key_id}/speed", response_model=list[SpeedPoint])
+async def get_instance_speed(
+    key_id: uuid.UUID,
+    period: Literal["day", "week", "month"] = "day",  # фикс #3
+    db: AsyncSession = Depends(get_db),
+):
+    now = datetime.now(timezone.utc)
+
+    if period == "week":
+        since = now - timedelta(weeks=1)
+        trunc = "hour"          # 1 точка в час → макс 168 точек
+    elif period == "month":
+        since = now - timedelta(days=30)
+        trunc = "day"           # 1 точка в день → макс 30 точек
+    else:  # "day"
+        since = now - timedelta(days=1)
+        trunc = "minute"        # 1 точка в минуту → макс 1440 точек
+
+    # фикс #1 и #2 — агрегация прямо в SQL через date_trunc
+    bucket = func.date_trunc(trunc, TrafficLog.timestamp).label("bucket")
+
+    result = await db.execute(
+        select(
+            bucket,
+            func.avg(TrafficLog.upload_speed).label("upload_speed"),
+            func.avg(TrafficLog.download_speed).label("download_speed"),
+        )
+        .where(
+            TrafficLog.access_key_id == key_id,
+            TrafficLog.timestamp >= since,
+        )
+        .group_by(bucket)
+        .order_by(bucket.asc())
+    )
+    rows = result.all()
+
+    return [
+        SpeedPoint(
+            timestamp=row.bucket,
+            upload_speed=row.upload_speed,
+            download_speed=row.download_speed,
+        )
+        for row in rows
+    ]
 

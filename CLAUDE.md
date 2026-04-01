@@ -67,11 +67,13 @@ The backend is a **FastAPI async application** running on uvicorn. Key component
 
 - **`services/speed_tracker.py`** — Background async task. Publishes real-time speed data to Redis pub/sub channel `speed_updates`.
 
+- **`services/health_checker.py`** — `InstanceHealthChecker`. Runs every 300s; TCP-checks every active SS instance and writes `instance_alive:{key.id}` → `"0"|"1"` into Redis (TTL 600s). Not yet wired into `main.py` lifespan.
+
 - **`api/websocket.py`** — WebSocket endpoint `/api/ws/speed/{key_id}` subscribes to Redis `speed_updates` and streams per-key speed metrics to clients.
 
 - **`api/deps.py`** — FastAPI dependency injection: `get_current_active_user`, `get_admin_user` (JWT Bearer auth).
 
-- **`models/`** — SQLAlchemy ORM models: `User` (plans: free/basic/pro), `Server`, `AccessKey` (port, password, method, traffic counters), `TrafficLog`.
+- **`models/`** — SQLAlchemy ORM models: `User` (plans: free/basic/pro), `Server`, `AccessKey` (port, password, method, traffic counters, `started_at`), `TrafficLog`.
 
 - **`utils/crypto.py`** — JWT access/refresh token creation and verification (PyJWT + bcrypt). Access tokens expire in 30 min, refresh tokens in 7 days.
 
@@ -117,11 +119,16 @@ All prefixed with `/api`:
 | POST | `/auth/refresh` | Refresh tokens |
 | GET | `/keys/my` | List active keys |
 | POST | `/keys/create` | Create key (spawns SS process) |
+| GET | `/keys/{id}` | Get single key |
 | DELETE | `/keys/{id}` | Deactivate key (stops SS process) |
 | POST | `/keys/{id}/regenerate` | Regenerate password |
 | GET | `/servers/` | List active servers |
 | GET | `/traffic/stats` | Traffic stats |
 | WS | `/ws/speed/{key_id}` | Real-time speed stream |
+| GET | `/admin/users` | List all users (admin only) |
+| PATCH | `/admin/users/{id}` | Update user plan/limits (admin only) |
+| GET | `/admin/servers` | List all servers with stats (admin only) |
+| GET | `/metrics` | Prometheus metrics (not in OpenAPI schema) |
 
 ### Agent Node Architecture (`backend/agent/`)
 
