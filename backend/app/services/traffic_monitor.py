@@ -8,7 +8,7 @@ from app.models.access_key import AccessKey
 from app.models.traffic_log import TrafficLog
 from app.models.user import User
 from app.models.server import Server
-from app.services.server_backend import get_backend
+from app.services.server_backend import RemoteAgentBackend
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class TrafficMonitor:
             servers = result.scalars().all()
 
             for server in servers:
-                backend = get_backend(server)
+                backend = RemoteAgentBackend.from_server(server)
                 try:
                     all_traffic = await backend.get_all_traffic()
                 except Exception as e:
@@ -101,7 +101,7 @@ class TrafficMonitor:
                     )
                     keys = result.scalars().all()
                     for key in keys:
-                        await get_backend(key.server).stop_instance(key.ss_port)
+                        await RemoteAgentBackend.from_server(key.server).stop_instance(key.ss_port)
                         key.is_active = False
                         logger.info(f"Stopped key {key.id} for user {user.email} (traffic limit)")
 

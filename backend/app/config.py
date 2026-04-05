@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     SS_METHOD: str = "chacha20-ietf-poly1305"
     PORT_RANGE_START: int = 10001
     PORT_RANGE_END: int = 60000
+    PLAN_LIMIT_FREE: int = 1
+    PLAN_LIMIT_BASIC: int = 3
+    PLAN_LIMIT_PRO: int = 10
 
     ADMIN_EMAIL: str
     ADMIN_PASSWORD: str

@@ -10,7 +10,7 @@ from app.api.deps import get_admin_user
 from app.database import get_db
 from app.models import Server, User
 from app.schemas.server import ServerResponse, ServerCreate, ServerUpdate
-from app.services.server_backend import get_backend
+from app.services.server_backend import RemoteAgentBackend
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -104,6 +104,6 @@ async def server_health(
       raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Server not found")
 
 
-  data = await get_backend(server).health_check()
+  data = await RemoteAgentBackend.from_server(server).health_check()
   return {"online": data.get("status") == "ok", "active_instances": data.get("active_instances", 0)}
 

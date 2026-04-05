@@ -8,13 +8,17 @@ from datetime import datetime, timezone
 
 from app.api.deps import get_current_active_user
 from app.database import get_db
+from app.keys.dependencies import get_key_service
+from app.keys.service import AccessKeyService, KeyLimitExceededError, InstanceStartError
 from app.models import AccessKey
 from app.models.user import PlanType, User
 from app.models.server import Server
 from app.schemas.access_key import AccessKeyCreate, AccessKeyResponse
+from app.servers.dependencies import get_server_service
+from app.servers.service import ServerService, ServerNotFoundError
 from app.services.shadowsocks import ss_manager
-from app.services.server_backend import get_backend
-from app.utils.ss_url import generate_ss_url, generate_qr_base64
+from app.services.server_backend import RemoteAgentBackend
+from app.utils.ss import generate_ss_url, generate_qr_base64
 
 router = APIRouter(prefix="/api/keys", tags=["keys"])
 
@@ -27,57 +31,26 @@ PLAN_KEY_LIMITS = {
 @router.post("/create", response_model=AccessKeyResponse, status_code=status.HTTP_201_CREATED)
 async def create_key(
     data: AccessKeyCreate,
-    db: AsyncSession = Depends(get_db),
+    key_service: AccessKeyService = Depends(get_key_service),
+    server_service: ServerService = Depends(get_server_service),
     user: User = Depends(get_current_active_user),
 ):
-    result = await db.execute(
-        select(func.count()).select_from(AccessKey).where(
-            AccessKey.user_id == user.id, AccessKey.is_active == True  # noqa: E712
-        )
-    )
-    active_count = result.scalar()
-    limit = PLAN_KEY_LIMITS.get(user.plan, 1)
-    if active_count >= limit:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Key limit reached for {user.plan.value} plan ({limit} keys)",
-        )
 
-    # Verify server exists
-    result = await db.execute(select(Server).where(Server.id == data.server_id, Server.is_active == True))  # noqa: E712
-    server = result.scalar_one_or_none()
-    if not server:
+    try:
+        server = await server_service.get_active(data.server_id)
+    except ServerNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Server not found or inactive")
 
-    # Allocate port and generate password
-    port = await ss_manager.get_next_free_port(db, server.id)
-    password = ss_manager.generate_password()
-    method = "chacha20-ietf-poly1305"
-
-    # Start SS instance
-    backend = get_backend(server)
-    started = await backend.start_instance(port, password, method)
-    if not started:
+    try:
+        key, ss_url, qr_code = await key_service.create_key(user, server)
+    except KeyLimitExceededError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Key limit reached for your plan")
+    except InstanceStartError:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to start VPN instance")
 
-    # Save to DB
-    key = AccessKey(
-        user_id=user.id,
-        server_id=server.id,
-        ss_port=port,
-        ss_password=password,
-        ss_method=method,
-        started_at=datetime.now(timezone.utc),
-    )
 
-    db.add(key)
-    await db.commit()
-    await db.refresh(key)
 
-    # Generate ss:// URL and QR code
-    tag = f"{server.country}-{server.name}"
-    ss_url = generate_ss_url(method, password, server.ip_address, port, tag)
-    qr_code = generate_qr_base64(ss_url)
+
 
     return AccessKeyResponse(
         id=key.id,
@@ -172,7 +145,7 @@ async def delete_key(
     if not key:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Key not found")
 
-    backend = get_backend(key.server)
+    backend = RemoteAgentBackend.from_server(key.server)
     await backend.stop_instance(key.ss_port)
     key.is_active = False
     await db.commit()
@@ -189,7 +162,7 @@ async def regenerate_key(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Key not found")
 
     # Stop old instance
-    backend = get_backend(key.server)
+    backend = RemoteAgentBackend.from_server(key.server)
     await backend.stop_instance(key.ss_port)
 
     # Generate new password and restart
@@ -218,3 +191,5 @@ async def regenerate_key(
         server_name=server.name if server else None,
         server_country=server.country if server else None,
     )
+
+

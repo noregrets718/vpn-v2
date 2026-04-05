@@ -1,36 +1,11 @@
 import logging
-from typing import Protocol, runtime_checkable
+
 
 import httpx
 
-from app.services.shadowsocks import ss_manager
-
+from app.models import Server
 
 logger = logging.getLogger(__name__)
-
-
-@runtime_checkable
-class ServerBackend(Protocol):
-  async def start_instance(self, port: int, password: str, method: str) -> bool: ...
-  async def stop_instance(self, port: int) -> bool: ...
-  async def get_all_traffic(self) -> dict[int, dict[str, int]]: ...
-  async def health_check(self) -> dict: ...
-
-
-class LocalBackend:
-  async def start_instance(self, port: int, password: str, method: str) -> bool:
-      return await ss_manager.start_instance(port, password, method)
-
-  async def stop_instance(self, port: int) -> bool:
-      return await ss_manager.stop_instance(port)
-
-  async def get_all_traffic(self) -> dict[int, dict[str, int]]:
-      return await ss_manager.get_all_traffic()
-
-  async def health_check(self) -> dict:
-      active = len([p for p, proc in ss_manager._processes.items() if proc.returncode is None])
-      return {"status": "ok", "active_instances": active}
-
 
 class RemoteAgentBackend:
   def __init__(self, url: str, token: str):
@@ -82,8 +57,8 @@ class RemoteAgentBackend:
           logger.error(f"RemoteAgent health_check failed: {e}")
       return {"status": "offline", "active_instances": 0}
 
+  @classmethod
+  def from_server(cls, server: Server) -> "RemoteAgentBackend":
+      return cls(server.agent_url, server.agent_token)
 
-def get_backend(server) -> ServerBackend:
-  if server.is_local:
-      return LocalBackend()
-  return RemoteAgentBackend(server.agent_url, server.agent_token)
+
